@@ -532,4 +532,7 @@ x_inj = jnp.array(x_inj)
 x_labels = np.array(x_labels)
 ndim = x_inj.shape[0]
 
+# check everything is lined up
+assert ndim == last_ndx, 'model dimension mis-match'
+
 
