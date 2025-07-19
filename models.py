@@ -114,7 +114,7 @@ efacs_inj = jr.uniform(key=jr.key(efac_seed),
                        maxval=efac_max)
 
 # EFAC parameter labels
-efac_labels = np.array([rf'EFAC$_{{{i}}}' for i in range(1, Np + 1)])
+efac_labels = np.array([rf'EFAC$_{{{i}}}$' for i in range(1, Np + 1)])
 
 # number of EFAC parameters
 N_efac = Np
@@ -133,7 +133,7 @@ Ns = jnp.array([jnp.eye(Ntoas) * psr_uncertainty_s**2.
 model_rn = True
 
 # intrinsic pulsar red noise parameter bounds
-rn_log_amp_min = -17.
+rn_log_amp_min = -15.
 rn_log_amp_max = -12.
 rn_gamma_min = 2.
 rn_gamma_max = 7.
@@ -208,16 +208,16 @@ alpha_inv = jnp.linalg.inv(alpha)
 #################################### FOURIER COEFFICIENTS #####################################
 ###############################################################################################
 
-# total number of Fourier coefficients in PTA
-Na_PTA = Np * Na
-
 # bounds on Fourier coefficients
-a_mins = jnp.array([-100_000.] * Na_PTA)
-a_max = jnp.array([100_000.] * Na_PTA)
+a_min = -100_000.
+a_max = 100_000.
 
 # Fourier coefficient labels
 a_labels = np.array([[rf'$a^{{{j // 2}}}_{{{i}}}$' if j % 2 == 0 else rf'$b^{{{j // 2}}}_{{{i}}}$'
                       for j in range(2, Na + 2)] for i in range(1, Np + 1)]).flatten()
+
+# total number of Fourier coefficients in PTA
+Na_PTA = Np * Na
 
 # diagonal of covariance matrix of Fourier coefficients using power-law
 rho_scale = (c.year_sec ** 3.) / (12. * (jnp.pi ** 2.) * Tspan)
@@ -285,7 +285,7 @@ cw_psr_labels = np.concatenate((cw_labels, phase_labels, dist_labels))
 # coninuous wave parameters injected
 gwtheta_inj = 2 * jnp.pi / 5
 gwphi_inj = 7 * jnp.pi / 4.
-mc_inj = 10.**8.5
+mc_inj = 10.**8.8
 dist_inj = 1.0
 fgw_inj = 4.e-9
 phase0_inj = 0.
@@ -497,24 +497,36 @@ Ntinvs = jnp.array([G @ jnp.linalg.inv(G.T @ N @ G) @ G.T for G, N in zip(Gs, Ns
 # combine injected parameters and labels into arrays
 last_ndx = 0
 x_inj = []
+x_mins = []
+x_maxs = []
 x_labels = []
 if model_wn:
     x_inj.extend(list(efacs_inj))
+    efac_mins = jnp.array([efac_min] * N_efac)
+    efac_maxs = jnp.array([efac_max] * N_efac)
+    x_mins.extend(list(efac_mins))
+    x_maxs.extend(list(efac_maxs))
     x_labels.extend(list(efac_labels))
     efac_ndxs = jnp.r_[last_ndx : last_ndx + N_efac]
     last_ndx = efac_ndxs[-1] + 1
 if model_rn:
     x_inj.extend(list(rn_inj))
+    x_mins.extend(list(rn_mins))
+    x_maxs.extend(list(rn_maxs))
     x_labels.extend(list(rn_labels))
     rn_ndxs = jnp.r_[last_ndx : last_ndx + N_rn]
     last_ndx = rn_ndxs[-1] + 1
 if model_gwb:
     x_inj.extend(list(gwb_inj))
+    x_mins.extend(list(gwb_mins))
+    x_maxs.extend(list(gwb_maxs))
     x_labels.extend(list(gwb_labels))
     gwb_ndxs = jnp.r_[last_ndx : last_ndx + N_gwb]
     last_ndx = gwb_ndxs[-1] + 1
 if model_cw:
     x_inj.extend(list(cw_psr_inj))
+    x_mins.extend(list(cw_psr_mins))
+    x_maxs.extend(list(cw_psr_maxs))
     x_labels.extend(list(cw_psr_labels))
     cw_psr_ndxs = jnp.r_[last_ndx : last_ndx + N_cw_psr]
     last_ndx = cw_psr_ndxs[-1] + 1
@@ -523,12 +535,18 @@ if model_cw:
     psr_dist_ndxs = cw_psr_ndxs[-Np:]
 if model_rn or model_gwb:
     x_inj.extend(list(a_inj))
+    a_mins = jnp.array([a_min] * Na_PTA)
+    a_maxs = jnp.array([a_max] * Na_PTA)
+    x_mins.extend(list(a_mins))
+    x_maxs.extend(list(a_maxs))
     x_labels.extend(list(a_labels))
     a_ndxs = jnp.r_[last_ndx : last_ndx + Na_PTA]
     last_ndx = a_ndxs[-1] + 1
 
 # convert to jax or numpy arrays
 x_inj = jnp.array(x_inj)
+x_mins = jnp.array(x_mins)
+x_maxs = jnp.array(x_maxs)
 x_labels = np.array(x_labels)
 ndim = x_inj.shape[0]
 
