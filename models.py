@@ -133,7 +133,7 @@ Ns = jnp.array([jnp.eye(Ntoas) * psr_uncertainty_s**2.
 model_rn = True
 
 # intrinsic pulsar red noise parameter bounds
-rn_log_amp_min = -15.
+rn_log_amp_min = -16.
 rn_log_amp_max = -12.
 rn_gamma_min = 2.
 rn_gamma_max = 7.
@@ -285,7 +285,7 @@ cw_psr_labels = np.concatenate((cw_labels, phase_labels, dist_labels))
 # coninuous wave parameters injected
 gwtheta_inj = 2 * jnp.pi / 5
 gwphi_inj = 7 * jnp.pi / 4.
-mc_inj = 10.**8.8
+mc_inj = 10.**8.45
 dist_inj = 1.0
 fgw_inj = 4.e-9
 phase0_inj = 0.
