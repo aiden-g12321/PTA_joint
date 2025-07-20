@@ -15,4 +15,5 @@ year_months = 12.
 year_days = 365.25
 day_sec = 24. * 60. * 60.
 year_sec = year_days * day_sec
+us_sec = 1.e-6
 
