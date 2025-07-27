@@ -109,6 +109,9 @@ class PTA:
         self.Na = 2 * self.Nf
         self.freqs = jnp.arange(1, self.Nf + 1) / self.Tspan
 
+        # total Fourier coefficients in entire PTA
+        self.Na_PTA = self.Na * self.Np
+
         # Fourier design matrix
         self.Fs = jnp.zeros((self.Np, self.Ntoas, self.Na))
         for i in range(self.Np):
@@ -162,8 +165,8 @@ class PTA:
         if self.model_rn:
 
             # intrinsic pulsar red noise parameter bounds
-            self.rn_log_amp_min = -14.5
-            self.rn_log_amp_max = -13.
+            self.rn_log_amp_min = -16.0
+            self.rn_log_amp_max = -12.5
             self.rn_gamma_min = 2.
             self.rn_gamma_max = 7.
             self.rn_mins = jnp.array([self.rn_log_amp_min, self.rn_gamma_min] * self.Np)
@@ -215,27 +218,27 @@ class PTA:
             # number of gravitational wave background parameters
             self.N_gwb = 2
 
-            # angles between pulsars
-            self.angles = np.zeros((self.Np, self.Np))
-            for i in range(self.Np):
-                for j in range(i, self.Np):
-                    pos1 = self.psr_pos[i]
-                    pos2 = self.psr_pos[j]
-                    self.angles[i,j] = self.angles[j,i] = np.arccos(np.clip(np.dot(pos1, pos2), -1.0, 1.0))
-            self.angles = jnp.array(self.angles)
+        # angles between pulsars
+        self.angles = np.zeros((self.Np, self.Np))
+        for i in range(self.Np):
+            for j in range(i, self.Np):
+                pos1 = self.psr_pos[i]
+                pos2 = self.psr_pos[j]
+                self.angles[i,j] = self.angles[j,i] = np.arccos(np.clip(np.dot(pos1, pos2), -1.0, 1.0))
+        self.angles = jnp.array(self.angles)
 
-            # Hellings-Downs weighting
-            self.alpha = np.zeros((self.Np, self.Np))
-            for i in range(self.Np):
-                for j in range(self.Np):
-                    if i == j:
-                        self.alpha[i,j] = 1.
-                    else:
-                        ang = self.angles[i,j]
-                        beta = (1. - np.cos(ang)) / 2.
-                        self.alpha[i,j] = 1.5 * beta * np.log(beta) - 0.25 * beta + 0.5
-            self.alpha = jnp.array(self.alpha)
-            self.alpha_inv = jnp.linalg.inv(self.alpha)
+        # Hellings-Downs weighting
+        self.alpha = np.zeros((self.Np, self.Np))
+        for i in range(self.Np):
+            for j in range(self.Np):
+                if i == j:
+                    self.alpha[i,j] = 1.
+                else:
+                    ang = self.angles[i,j]
+                    beta = (1. - np.cos(ang)) / 2.
+                    self.alpha[i,j] = 1.5 * beta * np.log(beta) - 0.25 * beta + 0.5
+        self.alpha = jnp.array(self.alpha)
+        self.alpha_inv = jnp.linalg.inv(self.alpha)
 
 
 
@@ -254,8 +257,6 @@ class PTA:
                                     for j in range(2, self.Na + 2)]
                                     for i in range(1,self. Np + 1)]).flatten()
 
-            # total number of Fourier coefficients in PTA
-            self.Na_PTA = self.Np * self.Na
 
             # constants used in diagonal of covariance matrix for Fourier coefficients with power-law
             self.rho_scale = (c.year_sec ** 3.) / (12. * (jnp.pi ** 2.) * self.Tspan)
@@ -268,14 +269,14 @@ class PTA:
             self.vectorized_get_rho_diag = jit(vmap(self.get_rho_diag))
 
             # get covariance matrix of coefficients for RN + GWB
-            rn_rho_inj_diags = self.vectorized_get_rho_diag(self.rn_inj.reshape((self.Np, 2)))
-            rn_phi_inj_flat = jnp.diag(rn_rho_inj_diags.flatten())
-            gwb_rho_inj_diag = self.get_rho_diag(self.gwb_inj)
-            gwb_phi_inj_flat = jnp.kron(self.alpha, jnp.diag(gwb_rho_inj_diag))
             phi_inj_flat = jnp.zeros((self.Na_PTA, self.Na_PTA))
             if model_rn:
+                rn_rho_inj_diags = self.vectorized_get_rho_diag(self.rn_inj.reshape((self.Np, 2)))
+                rn_phi_inj_flat = jnp.diag(rn_rho_inj_diags.flatten())
                 phi_inj_flat = phi_inj_flat.at[:, :].add(rn_phi_inj_flat)
             if model_gwb:
+                gwb_rho_inj_diag = self.get_rho_diag(self.gwb_inj)
+                gwb_phi_inj_flat = jnp.kron(self.alpha, jnp.diag(gwb_rho_inj_diag))
                 phi_inj_flat = phi_inj_flat.at[:, :].add(gwb_phi_inj_flat)
 
             # injected coefficients are drawn according to this covariance matrix
@@ -316,7 +317,7 @@ class PTA:
             if self.cw_inj is None:
                 gwtheta_inj = 2 * jnp.pi / 5
                 gwphi_inj = 7 * jnp.pi / 4.
-                mc_inj = 10.**8.8
+                mc_inj = 10.**9.0
                 dist_inj = 1.0
                 fgw_inj = 4.e-9
                 phase0_inj = 0.
@@ -361,7 +362,7 @@ class PTA:
         # timing design matrix
         self.Ms = jnp.array([jnp.vstack([jnp.ones(self.Ntoas),
                                          self.toas[i],
-                                         self.toas[i]**2]).T
+                                         self.toas[i]**2.]).T
                              for i in range(self.Np)])
 
         # projection orthogonal to space of timing model
@@ -370,9 +371,9 @@ class PTA:
 
         # white noise covariance matrix marginalized over timing model parameters
         U_s = jnp.array([jnp.linalg.svd(M)[0] for M in self.Ms])
-        Gs = jnp.array([U[:, 3:] for U in U_s])
+        self.Gs = jnp.array([U[:, 3:] for U in U_s])
         self.Ntinvs = jnp.array([G @ jnp.linalg.inv(G.T @ N @ G) @ G.T
-                                 for G, N in zip(Gs, self.Ns)])
+                                 for G, N in zip(self.Gs, self.Ns)])
 
 
 
@@ -439,11 +440,18 @@ class PTA:
         # check everything is lined up
         assert self.ndim == last_ndx, 'model dimension mis-match'
 
-        # SIMULATE TIMING RESIDUALS
+        ###############################################################################################
+        ################################## SIMULATE RESIDUALS #########################################
+        ###############################################################################################
+        
         # (projected into space orthogonal to timing model)
         self.residuals = self.sim_residuals()
 
 
+
+    ###############################################################################################
+    ############################ MODEL AND SIMULATION METHODS #####################################
+    ###############################################################################################
 
 
     # covariance matrix for Fourier coefficients under power law
@@ -613,8 +621,8 @@ class PTA:
             white_noise = jnp.array([jr.multivariate_normal(key=self.simulation_keys[6],
                                                             mean=jnp.zeros(self.Ntoas),
                                                             cov=N)
-                                    for N in self.Ns]) * self.efacs_inj[:, None]
-            residuals = residuals.at[:, :].add(white_noise)
+                                     for N in self.Ns])
+            residuals = residuals.at[:, :].add(white_noise * self.efacs_inj[:, None])
 
         if self.model_rn or self.model_gwb:  # add red noise and/or gravitational wave background
             rn_gwb_residuals = jnp.matmul(self.Fs, self.a_inj.reshape((self.Np, self.Na))[..., None]).squeeze(-1)

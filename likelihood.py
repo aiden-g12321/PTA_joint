@@ -13,6 +13,7 @@ from PTA import PTA
 class Likelihood:
 
     def __init__(self,
+                 toas,
                  residuals,
                  Ntinvs,
                  Fs,
@@ -25,6 +26,7 @@ class Likelihood:
                  psr_dists_stdev,
                  x_mins,
                  x_maxs):
+        self.toas = toas
         self.residuals = residuals
         self.Ntinvs = Ntinvs
         self.Fs = Fs
@@ -54,7 +56,7 @@ class Likelihood:
     # likelihood per pulsar
     @partial(jit, static_argnums=(0,))
     def lnlike_per_psr(self, efac, a, U, V, W):
-        return -0.5 * (U + a.T @ W @ a - 2 * jnp.inner(a, V)) / efac**2. - self.Ntoas * jnp.log(efac)
+        return -0.5 * (U + a.T @ W @ a - 2 * jnp.inner(a, V)) / efac**2. - (self.Ntoas) * jnp.log(efac)
 
     # likelihood for all pulsars
     @partial(jit, static_argnums=(0,))
@@ -145,7 +147,8 @@ class Likelihood:
 
 # make Likelihood object with PTA object
 def get_likelihood_obj(pta_obj):
-    l = Likelihood(pta_obj.residuals,
+    l = Likelihood(pta_obj.toas,
+                   pta_obj.residuals,
                    pta_obj.Ntinvs,
                    pta_obj.Fs,
                    pta_obj.Ntoas,
