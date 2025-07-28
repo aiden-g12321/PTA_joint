@@ -2,6 +2,7 @@
 
 
 import numpy as np
+from jax import jit, vmap
 import matplotlib.pyplot as plt
 import pandas as pd
 from chainconsumer import ChainConsumer, Chain, Truth
@@ -11,7 +12,7 @@ from emcee.autocorr import integrated_time
 
 class Samples:
 
-    def __init__(self, samples_arr, labels, x_inj=None, lnpost_func=None):
+    def __init__(self, samples_arr, labels, x_inj=None, lnpost_func=None, jax=True):
         self.samples = samples_arr
         self.labels = labels
         self.x_inj = x_inj
@@ -21,6 +22,10 @@ class Samples:
         self.lnpost_func = lnpost_func
         if self.lnpost_func is None:
             self.lnpost_func = lambda x: 0.
+        
+        self.jax = jax
+        if self.jax:
+            self.vectorized_lnpost_func = jit(vmap(self.lnpost_func))
 
     
         # data frame object for corner plots
@@ -32,7 +37,10 @@ class Samples:
     
     # plot posterior values over samples
     def plt_posterior_vals(self, burnin=0, plt_inj=True, legend=False):
-        lnpost_vals = np.array([self.lnpost_func(x) for x in self.samples[burnin:]])
+        if self.jax:
+            lnpost_vals = self.vectorized_lnpost_func(self.samples[burnin:])
+        else:
+            lnpost_vals = np.array([self.lnpost_func(x) for x in self.samples[burnin:]])
         plt.plot(lnpost_vals, label='samples')
         plt.xlabel('MCMC iteration')
         plt.ylabel('ln(posterior)')
@@ -47,7 +55,7 @@ class Samples:
         for i in range(self.ndim):
             plt.plot(self.samples[burnin:, i], color=f'C{i}', alpha=0.5)
             if self.x_inj is not None and plt_inj:
-                plt.axhline(self.x_inj[i], color=f'C{i}', alpha=0.8)
+                plt.axhline(self.x_inj[i], color=f'C{i}', alpha=0.8, label=self.labels[i])
         if legend:
             plt.legend()
         plt.xlabel('MCMC iteration')
@@ -69,9 +77,10 @@ class Samples:
 
     # corner plot
     def corner_plt(self, param_ndxs, burnin=0, thin=1, other_samples=None,
-                   name1='samples', name2='samples2'):
+                   name1='samples', name2='samples2', **kwargs):
         c = ChainConsumer()
-        c.add_chain(Chain(samples=self.samples_df.iloc[::thin, param_ndxs], name=name1))
+        c.add_chain(Chain(samples=self.samples_df.iloc[::thin, param_ndxs],
+                          name=name1, **kwargs))
         if self.x_inj is not None:
             c.add_truth(Truth(location={name: val for name, val in zip(self.labels, self.x_inj)}))
         if other_samples is not None:

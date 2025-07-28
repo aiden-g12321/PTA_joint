@@ -33,7 +33,7 @@ class PTA:
                  tref=1.e9,
                  seed=0):
         
-        # random keys used to randomly draw model parameters and detector characteristics
+        # random keys used to draw model parameters and detector characteristics
         self.seed = seed
         self.simulation_keys = jr.split(key=jr.key(self.seed), num=7)
 
@@ -145,7 +145,7 @@ class PTA:
                                             maxval=self.efac_max)
 
             # EFAC parameter labels
-            self.efac_labels = np.array([rf'EFAC$_{{{i}}}$' for i in range(1, self.Np + 1)])
+            self.efac_labels = np.array([rf'$EFAC_{{{i}}}$' for i in range(1, self.Np + 1)])
 
             # number of EFAC parameters
             self.N_efac = self.Np
@@ -165,10 +165,18 @@ class PTA:
         if self.model_rn:
 
             # intrinsic pulsar red noise parameter bounds
-            self.rn_log_amp_min = -16.0
-            self.rn_log_amp_max = -12.5
-            self.rn_gamma_min = 2.
-            self.rn_gamma_max = 7.
+            # bounds for injection
+            self.rn_log_amp_min_inj = -15.0
+            self.rn_log_amp_max_inj = -12.0
+            self.rn_gamma_min_inj = 2.
+            self.rn_gamma_max_inj = 7.
+            # bounds for modeling
+            self.rn_log_amp_min = -20.0
+            self.rn_log_amp_max = -10.0
+            self.rn_gamma_min = 0.
+            self.rn_gamma_max = 12.
+            self.rn_mins_inj = jnp.array([self.rn_log_amp_min_inj, self.rn_gamma_min_inj] * self.Np)
+            self.rn_maxs_inj = jnp.array([self.rn_log_amp_max_inj, self.rn_gamma_max_inj] * self.Np)
             self.rn_mins = jnp.array([self.rn_log_amp_min, self.rn_gamma_min] * self.Np)
             self.rn_maxs = jnp.array([self.rn_log_amp_max, self.rn_gamma_max] * self.Np)
 
@@ -178,8 +186,8 @@ class PTA:
                 # draw from uniform distribution if not specified
                 self.rn_inj = jr.uniform(key=self.simulation_keys[4],
                                         shape=(2 * self.Np,),
-                                        minval=self.rn_mins,
-                                        maxval=self.rn_maxs)
+                                        minval=self.rn_mins_inj,
+                                        maxval=self.rn_maxs_inj)
 
             # intrinsic pulsar red noise parameter labels
             self.rn_labels = np.array([rf'$\log_{{{10}}}\,A_{{{i // 2}}}$' if i % 2 == 0 else \
