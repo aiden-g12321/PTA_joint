@@ -26,6 +26,7 @@ class Likelihood:
                  psr_dists_stdev,
                  x_mins,
                  x_maxs):
+        
         self.toas = toas
         self.residuals = residuals
         self.Ntinvs = Ntinvs
@@ -84,6 +85,7 @@ class Likelihood:
         ln_prior_val = -0.5 * jnp.sum(vmap(lambda x, y: jnp.dot(x, jnp.dot(y, x)))(a_stacked.T, phiinvs))
         ln_prior_val += -0.5 * jnp.sum(philogdets)
         return ln_prior_val
+    
 
     @partial(jit, static_argnums=(0,))
     def a_lnprior_gwb(self, gwb_hypers, a):
@@ -96,11 +98,30 @@ class Likelihood:
         # prior contribution
         phi_chol_factors = vmap(lambda x: js.linalg.cho_factor(x, lower=True))(phi)
         phiinvs = vmap(lambda cf: js.linalg.cho_solve((cf[0], True),
-                                                      jnp.identity(cf[0].shape[0])))(phi_chol_factors)
+                                                    jnp.identity(cf[0].shape[0])))(phi_chol_factors)
         philogdets = 2 * jnp.sum(jnp.log(jnp.diagonal(phi_chol_factors[0], axis1=1, axis2=2)), axis=1)
         ln_prior_val = -0.5 * jnp.sum(vmap(lambda x, y: jnp.dot(x, jnp.dot(y, x)))(a_stacked.T, phiinvs))
         ln_prior_val += -0.5 * jnp.sum(philogdets)
         return ln_prior_val
+    
+
+    @partial(jit, static_argnums=(0,))
+    def a_lnprior_gwb_free_spectral(self, gwb_hypers, a):
+        # reshape parameters
+        a_stacked = a.reshape((self.Np, self.Na))
+
+        # covariance matrix for Fourier coefficients
+        phi = jnp.repeat(10. ** gwb_hypers, 2)[:, None, None] * self.alpha[None, :, :]
+
+        # prior contribution
+        phi_chol_factors = vmap(lambda x: js.linalg.cho_factor(x, lower=True))(phi)
+        phiinvs = vmap(lambda cf: js.linalg.cho_solve((cf[0], True),
+                                                    jnp.identity(cf[0].shape[0])))(phi_chol_factors)
+        philogdets = 2 * jnp.sum(jnp.log(jnp.diagonal(phi_chol_factors[0], axis1=1, axis2=2)), axis=1)
+        ln_prior_val = -0.5 * jnp.sum(vmap(lambda x, y: jnp.dot(x, jnp.dot(y, x)))(a_stacked.T, phiinvs))
+        ln_prior_val += -0.5 * jnp.sum(philogdets)
+        return ln_prior_val
+    
 
     @partial(jit, static_argnums=(0,))
     def a_lnprior_rn_gwb(self, rn_hypers, gwb_hypers, a):
@@ -113,6 +134,28 @@ class Likelihood:
         rn_phi = rn_phi.at[:, jnp.arange(self.Np), jnp.arange(self.Np)].\
                         set(self.vectorized_get_rho_diag(rn_hypers_stacked).T)
         gwb_phi = self.get_rho_diag(gwb_hypers)[:, None, None] * self.alpha[None, :, :]
+        phi = rn_phi + gwb_phi
+
+        # prior contribution
+        phi_chol_factors = vmap(lambda x: js.linalg.cho_factor(x, lower=True))(phi)
+        phiinvs = vmap(lambda cf: js.linalg.cho_solve((cf[0], True),
+                                                      jnp.identity(cf[0].shape[0])))(phi_chol_factors)
+        philogdets = 2 * jnp.sum(jnp.log(jnp.diagonal(phi_chol_factors[0], axis1=1, axis2=2)), axis=1)
+        ln_prior_val = -0.5 * jnp.sum(vmap(lambda x, y: jnp.dot(x, jnp.dot(y, x)))(a_stacked.T, phiinvs))
+        ln_prior_val += -0.5 * jnp.sum(philogdets)
+        return ln_prior_val
+    
+    @partial(jit, static_argnums=(0,))
+    def a_lnprior_rn_gwb_free_spectral(self, rn_hypers, gwb_hypers, a):
+        # reshape parameters
+        rn_hypers_stacked = rn_hypers.reshape((self.Np, 2))
+        a_stacked = a.reshape((self.Np, self.Na))
+
+        # covariance matrix for Fourier coefficients
+        rn_phi = jnp.zeros((self.Na, self.Np, self.Np))
+        rn_phi = rn_phi.at[:, jnp.arange(self.Np), jnp.arange(self.Np)].\
+                        set(self.vectorized_get_rho_diag(rn_hypers_stacked).T)
+        gwb_phi = jnp.repeat(10. ** gwb_hypers, 2)[:, None, None] * self.alpha[None, :, :]
         phi = rn_phi + gwb_phi
 
         # prior contribution

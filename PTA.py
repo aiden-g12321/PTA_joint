@@ -26,16 +26,18 @@ class PTA:
                  model_rn=True,
                  model_gwb=True,
                  model_cw=True,
+                 gwb_free_spectral=False,
                  efacs_inj=None,
                  rn_inj=None,
-                 gwb_inj=None,
+                 gwb_power_law_inj=None,
                  cw_inj=None,
                  tref=1.e9,
                  seed=0):
         
+
         # random keys used to draw model parameters and detector characteristics
         self.seed = seed
-        self.simulation_keys = jr.split(key=jr.key(self.seed), num=7)
+        self.simulation_keys = jr.split(key=jr.key(self.seed), num=8)
 
         ###############################################################################################
         ######################################### PULSARS #############################################
@@ -46,7 +48,7 @@ class PTA:
 
         # pulsar distance (kpc)
         self.psr_dist_min = 0.1
-        self.psr_dist_max = 7.
+        self.psr_dist_max = 6.0
         self.psr_dists_inj = jr.uniform(key=self.simulation_keys[0],
                                         shape=(self.Np,),
                                         minval=self.psr_dist_min,
@@ -56,16 +58,23 @@ class PTA:
         self.psr_dists_stdev = jnp.array([0.2] * Np)
 
         # pulsar positions
-        self.psr_pos_min = -1.
-        self.psr_pos_max = 1.
-        self.psr_pos_not_normal = jr.uniform(key=self.simulation_keys[1],
-                                             shape=(self.Np, 3),
-                                             minval=self.psr_pos_min,
-                                             maxval=self.psr_pos_max)
+        phis = jr.uniform(key=self.simulation_keys[1],
+                          shape=(self.Np,),
+                          minval=0,
+                          maxval=2*jnp.pi)
+        cos_thetas = jr.uniform(key=self.simulation_keys[2],
+                                shape=(self.Np,),
+                                minval=-1.,
+                                maxval=1.)
+        thetas = jnp.arccos(cos_thetas)
+        xs = jnp.sin(thetas) * jnp.cos(phis)
+        ys = jnp.sin(thetas) * jnp.sin(phis)
+        zs = jnp.cos(thetas)
+        psr_pos_not_normalized = jnp.array([xs, ys, zs]).T
 
         # normalize pulsar positions
-        self.psr_pos = self.psr_pos_not_normal / \
-                       jnp.sqrt(jnp.sum(self.psr_pos_not_normal**2., axis=1)[:, None])
+        normalization = jnp.sqrt(jnp.sum(psr_pos_not_normalized**2., axis=1)[:, None])
+        self.psr_pos = psr_pos_not_normalized / normalization
 
 
 
@@ -92,7 +101,7 @@ class PTA:
 
         # offset TOA observations by ~couple days so not evenly spaced
         self.day_offset = 2.
-        self.toa_offsets = jr.normal(self.simulation_keys[2],
+        self.toa_offsets = jr.normal(self.simulation_keys[3],
                                      (self.Np, self.Ntoas)) * self.day_offset * c.day_sec
 
         # don't offset first and last TOA to preserve Tspan
@@ -127,28 +136,28 @@ class PTA:
         ######################################## WHITE NOISE ##########################################
         ###############################################################################################
 
-        # model white noise
+        # # model white noise
         self.model_wn = model_wn
-        if self.model_wn:
+        # if self.model_wn:
 
-            # EFAC parameter bounds
-            self.efac_min = 0.5
-            self.efac_max = 3.0
+        # EFAC parameter bounds
+        self.efac_min = 0.5
+        self.efac_max = 3.0
 
-            # injected EFACs in each pulsar
-            self.efacs_inj = efacs_inj
-            if self.efacs_inj is None:
-                # if not specified draw from uniform distribution
-                self.efacs_inj = jr.uniform(key=self.simulation_keys[3],
-                                            shape=(self.Np,),
-                                            minval=self.efac_min,
-                                            maxval=self.efac_max)
+        # injected EFACs in each pulsar
+        self.efacs_inj = efacs_inj
+        if self.efacs_inj is None:
+            # if not specified draw from uniform distribution
+            self.efacs_inj = jr.uniform(key=self.simulation_keys[4],
+                                        shape=(self.Np,),
+                                        minval=self.efac_min,
+                                        maxval=self.efac_max)
 
-            # EFAC parameter labels
-            self.efac_labels = np.array([rf'$EFAC_{{{i}}}$' for i in range(1, self.Np + 1)])
+        # EFAC parameter labels
+        self.efac_labels = np.array([rf'$EFAC_{{{i}}}$' for i in range(1, self.Np + 1)])
 
-            # number of EFAC parameters
-            self.N_efac = self.Np
+        # number of EFAC parameters
+        self.N_efac = self.Np
 
         # white noise covariance matrix
         self.Ns = jnp.array([jnp.eye(self.Ntoas) * self.psr_uncertainty_s**2.
@@ -164,27 +173,26 @@ class PTA:
         self.model_rn = model_rn
         if self.model_rn:
 
-            # intrinsic pulsar red noise parameter bounds
-            # bounds for injection
-            self.rn_log_amp_min_inj = -15.0
-            self.rn_log_amp_max_inj = -12.0
-            self.rn_gamma_min_inj = 2.
-            self.rn_gamma_max_inj = 7.
-            # bounds for modeling
+            # intrinsic pulsar red noise parameter bounds for sampling
             self.rn_log_amp_min = -20.0
             self.rn_log_amp_max = -10.0
-            self.rn_gamma_min = 0.
-            self.rn_gamma_max = 12.
-            self.rn_mins_inj = jnp.array([self.rn_log_amp_min_inj, self.rn_gamma_min_inj] * self.Np)
-            self.rn_maxs_inj = jnp.array([self.rn_log_amp_max_inj, self.rn_gamma_max_inj] * self.Np)
+            self.rn_gamma_min = 0.1
+            self.rn_gamma_max = 10.
             self.rn_mins = jnp.array([self.rn_log_amp_min, self.rn_gamma_min] * self.Np)
             self.rn_maxs = jnp.array([self.rn_log_amp_max, self.rn_gamma_max] * self.Np)
+            # intrinsic pulsar red noise parameter bounds for injection
+            self.rn_log_amp_min_inj = -17.0
+            self.rn_log_amp_max_inj = -14.0
+            self.rn_gamma_min_inj = 2.
+            self.rn_gamma_max_inj = 7.
+            self.rn_mins_inj = jnp.array([self.rn_log_amp_min_inj, self.rn_gamma_min_inj] * self.Np)
+            self.rn_maxs_inj = jnp.array([self.rn_log_amp_max_inj, self.rn_gamma_max_inj] * self.Np)
 
             # intrinsic red noise parameters for each pulsar
             self.rn_inj = rn_inj
             if self.rn_inj is None:
                 # draw from uniform distribution if not specified
-                self.rn_inj = jr.uniform(key=self.simulation_keys[4],
+                self.rn_inj = jr.uniform(key=self.simulation_keys[5],
                                         shape=(2 * self.Np,),
                                         minval=self.rn_mins_inj,
                                         maxval=self.rn_maxs_inj)
@@ -207,24 +215,56 @@ class PTA:
         self.model_gwb = model_gwb
         if self.model_gwb:
 
-            # gravitational wave background parameter bounds
-            self.gwb_log_amp_min = -17.
-            self.gwb_log_amp_max = -12.
-            self.gwb_gamma_min = 2.
-            self.gwb_gamma_max = 7.
-            self.gwb_mins = jnp.array([self.gwb_log_amp_min, self.gwb_gamma_min])
-            self.gwb_maxs = jnp.array([self.gwb_log_amp_max, self.gwb_gamma_max])
+            # injected power law parameters
+            self.gwb_power_law_inj = gwb_power_law_inj
 
-            # injected GWB parameters
-            self.gwb_inj = gwb_inj
-            if self.gwb_inj is None:
-                self.gwb_inj = jnp.array([-14., 13. / 3.])
+            # free spectral or power law hyper-model
+            self.gwb_free_spectral = gwb_free_spectral
 
-            # intrinsic pulsar red noise parameter labels
-            self.gwb_labels = np.array([r'$\log_{{{10}}}\,A_B$', r'$\gamma_B$'])
+            if self.gwb_free_spectral:
 
-            # number of gravitational wave background parameters
-            self.N_gwb = 2
+                # gravitational wave background power law parameter bounds
+                self.gwb_log_rho_min = -20.
+                self.gwb_log_rho_max = -8.
+                self.gwb_mins = jnp.array([self.gwb_log_rho_min] * self.Nf)
+                self.gwb_maxs = jnp.array([self.gwb_log_rho_max] * self.Nf)
+
+                # injected GWB parameters
+                self.gwb_power_law_inj = gwb_power_law_inj
+                if self.gwb_power_law_inj is None:
+                    self.gwb_power_law_inj = jnp.array([-14., 13. / 3.])
+                
+                # GWB injection defined below in Fourier coefficient section
+                # self.gwb_inj = jnp.log10(self.get_rho_diag(self.gwb_power_law_inj)[::2])
+
+                # intrinsic pulsar red noise parameter labels
+                self.gwb_labels = np.array([rf'$\log_{{{10}}}\,\rho^{{{i}}}_B$'
+                                            for i in range(1, self.Nf + 1)])
+
+                # number of gravitational wave background parameters
+                self.N_gwb = self.Nf
+            
+            else:
+
+                # gravitational wave background free spectral parameter bounds
+                self.gwb_log_amp_min = -17.
+                self.gwb_log_amp_max = -12.
+                self.gwb_gamma_min = 2.
+                self.gwb_gamma_max = 7.
+                self.gwb_mins = jnp.array([self.gwb_log_amp_min, self.gwb_gamma_min])
+                self.gwb_maxs = jnp.array([self.gwb_log_amp_max, self.gwb_gamma_max])
+
+                # injected GWB parameters
+                self.gwb_inj = self.gwb_power_law_inj
+                if self.gwb_inj is None:
+                    self.gwb_inj = jnp.array([-14., 13. / 3.])
+                    self.gwb_power_law_inj = self.gwb_inj
+
+                # intrinsic pulsar red noise parameter labels
+                self.gwb_labels = np.array([r'$\log_{{{10}}}\,A_B$', r'$\gamma_B$'])
+
+                # number of gravitational wave background parameters
+                self.N_gwb = 2
 
         # angles between pulsars
         self.angles = np.zeros((self.Np, self.Np))
@@ -249,12 +289,12 @@ class PTA:
         self.alpha_inv = jnp.linalg.inv(self.alpha)
 
 
-
         ###############################################################################################
         #################################### FOURIER COEFFICIENTS #####################################
         ###############################################################################################
 
         if self.model_rn or self.model_gwb:
+
             # bounds on Fourier coefficients
             self.a_min = -100_000.
             self.a_max = 100_000.
@@ -278,18 +318,22 @@ class PTA:
 
             # get covariance matrix of coefficients for RN + GWB
             phi_inj_flat = jnp.zeros((self.Na_PTA, self.Na_PTA))
-            if model_rn:
+            if self.model_rn:
                 rn_rho_inj_diags = self.vectorized_get_rho_diag(self.rn_inj.reshape((self.Np, 2)))
                 rn_phi_inj_flat = jnp.diag(rn_rho_inj_diags.flatten())
                 phi_inj_flat = phi_inj_flat.at[:, :].add(rn_phi_inj_flat)
-            if model_gwb:
-                gwb_rho_inj_diag = self.get_rho_diag(self.gwb_inj)
+            if self.model_gwb:
+                if self.gwb_free_spectral:
+                    self.gwb_inj = jnp.log10(self.get_rho_diag(self.gwb_power_law_inj)[::2])
+                else:
+                    self.gwb_inj = self.gwb_power_law_inj
+                gwb_rho_inj_diag = self.get_rho_diag(self.gwb_power_law_inj)
                 gwb_phi_inj_flat = jnp.kron(self.alpha, jnp.diag(gwb_rho_inj_diag))
                 phi_inj_flat = phi_inj_flat.at[:, :].add(gwb_phi_inj_flat)
 
             # injected coefficients are drawn according to this covariance matrix
             L_phi_inj = jnp.linalg.cholesky(phi_inj_flat)
-            self.a_inj = L_phi_inj @ jr.normal(key=self.simulation_keys[5], shape=(self.Na_PTA,))
+            self.a_inj = L_phi_inj @ jr.normal(key=self.simulation_keys[6], shape=(self.Na_PTA,))
 
 
 
@@ -625,12 +669,12 @@ class PTA:
     def sim_residuals(self):
         residuals = jnp.zeros((self.Np, self.Ntoas))
 
-        if self.model_wn:  # add white noise
-            white_noise = jnp.array([jr.multivariate_normal(key=self.simulation_keys[6],
-                                                            mean=jnp.zeros(self.Ntoas),
-                                                            cov=N)
-                                     for N in self.Ns])
-            residuals = residuals.at[:, :].add(white_noise * self.efacs_inj[:, None])
+        # if self.model_wn:  # add white noise
+        white_noise = jnp.array([jr.multivariate_normal(key=self.simulation_keys[7],
+                                                        mean=jnp.zeros(self.Ntoas),
+                                                        cov=N)
+                                    for N in self.Ns])
+        residuals = residuals.at[:, :].add(white_noise * self.efacs_inj[:, None])
 
         if self.model_rn or self.model_gwb:  # add red noise and/or gravitational wave background
             rn_gwb_residuals = jnp.matmul(self.Fs, self.a_inj.reshape((self.Np, self.Na))[..., None]).squeeze(-1)

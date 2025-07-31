@@ -79,7 +79,7 @@ class Samples:
     def corner_plt(self, param_ndxs, burnin=0, thin=1, other_samples=None,
                    name1='samples', name2='samples2', **kwargs):
         c = ChainConsumer()
-        c.add_chain(Chain(samples=self.samples_df.iloc[::thin, param_ndxs],
+        c.add_chain(Chain(samples=self.samples_df.iloc[burnin::thin, param_ndxs],
                           name=name1, **kwargs))
         if self.x_inj is not None:
             c.add_truth(Truth(location={name: val for name, val in zip(self.labels, self.x_inj)}))
