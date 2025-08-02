@@ -142,7 +142,7 @@ class PTA:
 
         # EFAC parameter bounds
         self.efac_min = 0.5
-        self.efac_max = 3.0
+        self.efac_max = 1.5
 
         # injected EFACs in each pulsar
         self.efacs_inj = efacs_inj
@@ -181,7 +181,7 @@ class PTA:
             self.rn_mins = jnp.array([self.rn_log_amp_min, self.rn_gamma_min] * self.Np)
             self.rn_maxs = jnp.array([self.rn_log_amp_max, self.rn_gamma_max] * self.Np)
             # intrinsic pulsar red noise parameter bounds for injection
-            self.rn_log_amp_min_inj = -17.0
+            self.rn_log_amp_min_inj = -15.0
             self.rn_log_amp_max_inj = -14.0
             self.rn_gamma_min_inj = 2.
             self.rn_gamma_max_inj = 7.
@@ -369,7 +369,7 @@ class PTA:
             if self.cw_inj is None:
                 gwtheta_inj = 2 * jnp.pi / 5
                 gwphi_inj = 7 * jnp.pi / 4.
-                mc_inj = 10.**9.0
+                mc_inj = 10.**8.5
                 dist_inj = 1.0
                 fgw_inj = 4.e-9
                 phase0_inj = 0.

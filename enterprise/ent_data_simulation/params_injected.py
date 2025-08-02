@@ -14,6 +14,7 @@ num_coeff = 2 * num_modes
 
 
 # white noise
+wn_model = False
 efac_seed = 112
 efac_inj = 1.0
 
@@ -30,16 +31,10 @@ GWB_hypers_inj = np.array([GWB_logamp_inj, GWB_gamma_inj])
 # intrinsic pulsar red noise
 rn_model = True
 RN_seed = 334
-# RN_logamps_inj = np.random.uniform(-13.5, -12.0, num_psrs)
-# RN_gammas_inj = np.random.uniform(1.0, 7.0, num_psrs)
 RN_logamps_inj = np.array([-13.2, -13.3, -13.1, -13.2, -13.1, -13.6, -13.5, -13.6, -13.8, -14.1,
                             -12.5, -13.3, -13.1, -13.2, -14.1, -12.5, -13.2, -13.1, -13.8, -14.1])[:num_psrs]
 RN_gammas_inj = np.array([3.6, 2.8, 3.5, 4.6, 3.1, 4.1, 3.8, 1.5, 5.6, 3.5,
                           2.1, 4.8, 1.5, 2.6, 2.5, 3.1, 3.8, 1.5, 5.6, 3.5])[:num_psrs]
-# RN_logamps_inj = np.array([-12.6, -12.3, -12.3, -12.8, -12.7, -13.8, -12.8, -13.1, -13.6, -14.1,
-#                             -12.5, -13.3, -13.1, -13.2, -14.1, -12.5, -12.8, -13.1, -13.2, -14.1])[:num_psrs]
-# RN_gammas_inj = np.array([5.6, 2.8, 3.5, 4.6, 3.1, 4.1, 3.8, 1.5, 5.6, 3.5,
-#                           2.1, 4.8, 1.5, 2.6, 2.5, 3.1, 3.8, 1.5, 5.6, 3.5])[:num_psrs]
 RN_hypers_inj = np.zeros(2 * num_psrs)
 RN_hypers_inj[::2] = RN_logamps_inj
 RN_hypers_inj[1::2] = RN_gammas_inj
