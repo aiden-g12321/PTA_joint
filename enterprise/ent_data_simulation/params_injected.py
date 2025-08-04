@@ -5,11 +5,11 @@ import numpy as np
 
 
 # number of pulsars
-num_psrs = 1
+num_psrs = 5
 
 
 # number of Fourier modes to model
-num_modes = 20
+num_modes = 10
 num_coeff = 2 * num_modes
 
 

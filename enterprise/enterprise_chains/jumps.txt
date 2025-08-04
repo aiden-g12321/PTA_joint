@@ -1,3 +1,0 @@
-covarianceJumpProposalAM 0.16
-DEJump 0.53
-covarianceJumpProposalSCAM 0.32
