@@ -8,6 +8,8 @@ from jax import jit, vmap
 import jax.numpy as jnp
 import jax.random as jr
 
+from scipy.signal.windows import tukey
+
 # use double precision
 from jax import config
 config.update('jax_enable_x64', True)
@@ -22,6 +24,8 @@ class PTA:
                  Np,
                  Tspan_yr,
                  Nf,
+                 Nf_cw=15,
+                 window_ext_yr=3.,
                  model_wn=True,
                  model_rn=True,
                  model_gwb=True,
@@ -181,7 +185,7 @@ class PTA:
             self.rn_mins = jnp.array([self.rn_log_amp_min, self.rn_gamma_min] * self.Np)
             self.rn_maxs = jnp.array([self.rn_log_amp_max, self.rn_gamma_max] * self.Np)
             # intrinsic pulsar red noise parameter bounds for injection
-            self.rn_log_amp_min_inj = -15.0
+            self.rn_log_amp_min_inj = -16.0
             self.rn_log_amp_max_inj = -14.0
             self.rn_gamma_min_inj = 2.
             self.rn_gamma_max_inj = 7.
@@ -341,13 +345,18 @@ class PTA:
         ####################################### CONTINUOUS WAVE #######################################
         ###############################################################################################
 
-        # model continuous wave
+        # number of Fourier coefficients for CW representation
+        self.Nf_cw = Nf_cw
+        self.Na_cw = 2 * self.Nf_cw
+        self.Fs_cw = jnp.zeros((self.Np, self.Ntoas, self.Na_cw))
+        
+        # model continuous wave        
         self.model_cw = model_cw
         if self.model_cw:
 
             # continuous wave parameter bounds
-            self.cw_mins = jnp.array([7., -10., -1., -jnp.pi / 2., -1., -1., 0., -jnp.pi / 2.])
-            self.cw_maxs = jnp.array([10., -7.2, 1., jnp.pi / 2., 2., 1., 2. * jnp.pi, jnp.pi / 2.])
+            self.cw_mins = jnp.array([7., -9., -1., -jnp.pi / 2., -1., -1., 0., -jnp.pi / 2.])
+            self.cw_maxs = jnp.array([9.5, -8., 1., jnp.pi / 2., 2., 1., 2. * jnp.pi, jnp.pi / 2.])
             self.psr_dist_mins = jnp.ones(self.Np) * self.psr_dist_min
             self.psr_dist_maxs = jnp.ones(self.Np) * self.psr_dist_max
             self.psr_phase_mins = jnp.zeros(self.Np)
@@ -369,7 +378,7 @@ class PTA:
             if self.cw_inj is None:
                 gwtheta_inj = 2 * jnp.pi / 5
                 gwphi_inj = 7 * jnp.pi / 4.
-                mc_inj = 10.**8.5
+                mc_inj = 10.**9.0
                 dist_inj = 1.0
                 fgw_inj = 4.e-9
                 phase0_inj = 0.
@@ -396,16 +405,40 @@ class PTA:
             self.N_psr = 2 * self.Np
             self.N_cw_psr = self.N_cw + self.N_psr
 
+            # window extension for CW FFT (avoids Gibbs phenomena)
+            self.window_ext_yr = window_ext_yr
+            self.window_ext = self.window_ext_yr * c.year_sec
+
+            # extended Tspan for CW FFT
+            self.Tspan_ext_yr = self.Tspan_yr + 2. * self.window_ext_yr
+            self.Tspan_ext = self.Tspan_ext_yr * c.year_sec
+
             # sparse times used for FFT in CW model
-            self.sparse_toas_CW = jnp.array([jnp.linspace(self.toas[idx][0], self.toas[idx][-1],
-                                                          self.Na + 2, endpoint=False)
-                                        for idx in range(self.Np)])  # (Np, N_sparse)
+            # self.sparse_toas_CW = jnp.array([jnp.linspace(self.toas[idx][0], self.toas[idx][-1],
+            #                                               self.Na + 2, endpoint=False)
+            #                             for idx in range(self.Np)])  # (Np, N_sparse)
+            # self.Nsparse = self.sparse_toas_CW.shape[1]
+            # self.freqs_forFFT = jnp.array([jnp.fft.fftfreq(self.Nsparse, self.Tspan / self.Nsparse)
+            #                                for _ in range(self.Np)])
+            self.sparse_toas_CW = jnp.array([jnp.linspace(self.toas[idx][0] - self.window_ext,
+                                                          self.toas[idx][-1] + self.window_ext,
+                                                          self.Na_cw + 2, endpoint=False)
+                                             for idx in range(self.Np)])  # (Np, N_sparse)
             self.Nsparse = self.sparse_toas_CW.shape[1]
-            self.freqs_forFFT = jnp.array([jnp.fft.fftfreq(self.Nsparse, self.Tspan / self.Nsparse)
+            self.freqs_forFFT = jnp.array([jnp.fft.fftfreq(self.Nsparse, self.Tspan_ext / self.Nsparse)
                                            for _ in range(self.Np)])
+            
+            # Fourier design matrix for CW
+            for i in range(self.Np):
+                for j in range(self.Nf_cw):
+                    self.Fs_cw = self.Fs_cw.at[i, :, 2 * j].set(jnp.sin(2. * jnp.pi * \
+                                                                self.freqs_forFFT[i, j + 1] * self.toas[i]))
+                    self.Fs_cw = self.Fs_cw.at[i, :, 2 * j + 1].set(jnp.cos(2. * jnp.pi * \
+                                                                    self.freqs_forFFT[i, j + 1] * self.toas[i]))            
 
-
-
+            # Tukey window for FFT
+            self.Tukey_cw = tukey(self.Nsparse, alpha=self.window_ext_yr/self.Tspan_ext_yr)
+            self.Tukey_cw = jnp.array(self.Tukey_cw)
 
         ###############################################################################################
         ##################################### TIMING MODEL ############################################
@@ -565,6 +598,80 @@ class PTA:
 
         return fplus, fcross, cosMu
 
+
+    # get signal due to continuous wave
+    # need TOAs as input to evaluate model over
+    @partial(jit, static_argnums=(0,))
+    def cw_delay_toa_input(self, x_CW, toas_input):
+        '''
+        Returns CW signal over sparse TOAs given CW parameters, pulsar parameters, and
+        position of pulsar.
+        
+        params: x_CW: jax array of continuous wave parameters
+        '''
+        # unpack parameters
+        log10_mc, log10_fgw, cos_inc, psi, log10_dist, cos_gwtheta, gwphi, phase0 = x_CW[:self.N_cw]
+        p_phases = x_CW[self.N_cw : self.N_cw + self.Np]
+        pdists = x_CW[self.N_cw + self.Np:]
+
+        # convert units to time
+        mc = 10 ** log10_mc * c.Tsun
+        fgw = 10 ** log10_fgw
+        gwtheta = jnp.arccos(cos_gwtheta)
+        inc = jnp.arccos(cos_inc)
+        p_dists = pdists * c.kpc / c.c
+        dist = 10 ** log10_dist * c.Mpc / c.c
+
+        # get antenna pattern funcs and cosMu
+        # write function to get pos from theta,phi
+        fplus, fcross, cosMu = self.create_gw_antenna_pattern(gwtheta, gwphi)
+
+        # get pulsar time
+        toas_copy = toas_input - self.tref
+        tp = toas_copy - (p_dists*(1-cosMu))[:, None]
+
+        # orbital frequency
+        w0 = jnp.pi * fgw
+        phase0 = phase0 / 2.0  # convert GW to orbital phase
+
+        # calculate time dependent frequency at earth and pulsar
+        mc53 = mc**(5./3.)
+        w083 = w0**(8./3.)
+        fac1 = 256./5. * mc53 * w083
+        omega = w0 * (1. - fac1 * toas_copy)**(-3./8.)
+        omega_p = w0 * (1. - fac1 * tp)**(-3./8.)
+        omega_p0 = (w0 * (1. + fac1 * p_dists*(1-cosMu))**(-3./8.))[:, None]
+
+        # calculate time dependent phase
+        phase = phase0 + 1./32./mc53 * (w0**(-5./3.) - omega**(-5./3.))
+
+        phase_p = (phase0 + p_phases[:, None]
+                    + 1./32./mc53 * (omega_p0**(-5./3.) - omega_p**(-5./3.)))
+
+        # define time dependent coefficients
+        inc_factor = -0.5 * (3. + jnp.cos(2. * inc))
+        At = jnp.sin(2. * phase) * inc_factor
+        Bt = 2. * jnp.cos(2. * phase) * cos_inc
+        At_p = jnp.sin(2. * phase_p) * inc_factor
+        Bt_p = 2. * jnp.cos(2. * phase_p) * cos_inc
+
+        # now define time dependent amplitudes
+        alpha = mc**(5./3.)/(dist*omega**(1./3.))
+        alpha_p = mc**(5./3.)/(dist*omega_p**(1./3.))
+
+        # define rplus and rcross
+        c2psi = jnp.cos(2. * psi)
+        s2psi = jnp.sin(2. * psi)
+        rplus = alpha*(-At*c2psi+Bt*s2psi)
+        rcross = alpha*(At*s2psi+Bt*c2psi)
+        rplus_p = alpha_p*(-At_p*c2psi+Bt_p*s2psi)
+        rcross_p = alpha_p*(At_p*s2psi+Bt_p*c2psi)
+
+        # residuals
+        res = fplus[:, None] * (rplus_p - rplus) + fcross[:, None] * (rcross_p - rcross)
+        return res  # (Np, Nsparse)
+
+
     # get signal due to continuous wave
     @partial(jit, static_argnums=(0,))
     def cw_delay(self, x_CW):
@@ -582,12 +689,9 @@ class PTA:
         # convert units to time
         mc = 10 ** log10_mc * c.Tsun
         fgw = 10 ** log10_fgw
-        # mc = jnp.power(10., log10_mc) * Tsun
-        # fgw = jnp.power(10., log10_fgw)
         gwtheta = jnp.arccos(cos_gwtheta)
         inc = jnp.arccos(cos_inc)
         p_dists = pdists * c.kpc / c.c
-        # dist = jnp.power(10., log10_dist) * Mpc / c
         dist = 10 ** log10_dist * c.Mpc / c.c
 
         # get antenna pattern funcs and cosMu
@@ -595,8 +699,6 @@ class PTA:
         fplus, fcross, cosMu = self.create_gw_antenna_pattern(gwtheta, gwphi)
 
         # get pulsar time
-        # toas_copy = jnp.copy(toas_input)
-        # toas_copy -= tref
         toas_copy = self.sparse_toas_CW - self.tref
         tp = toas_copy - (p_dists*(1-cosMu))[:, None]
 
@@ -620,10 +722,8 @@ class PTA:
 
         # define time dependent coefficients
         inc_factor = -0.5 * (3. + jnp.cos(2. * inc))
-        # At = -0.5*np.sin(2*phase)*(3+np.cos(2*inc))
         At = jnp.sin(2. * phase) * inc_factor
         Bt = 2. * jnp.cos(2. * phase) * cos_inc
-        # At_p = -0.5*np.sin(2*phase_p)*(3+np.cos(2*inc))
         At_p = jnp.sin(2. * phase_p) * inc_factor
         Bt_p = 2. * jnp.cos(2. * phase_p) * cos_inc
 
@@ -653,15 +753,19 @@ class PTA:
         params: x_CW: continuous wave parameters
         '''
         cw_residuals = self.cw_delay(x_CW)
-        cw_fft = jnp.fft.fft(cw_residuals, n=None, axis=-1, norm=None)  # dim (Np, 2 * Nf + 2)
+        # window residuals over window
+        cw_residuals_windowed = self.Tukey_cw * cw_residuals
+        # cw_residuals_windowed = cw_residuals
+        # do FFT
+        cw_fft = jnp.fft.fft(cw_residuals_windowed, n=None, axis=-1, norm=None)  # dim (Np, 2 * Nf + 2)
         # apply time shift to fft to set initial time
         cw_fft *= jnp.exp(-1.j * 2 * jnp.pi * self.freqs_forFFT * self.sparse_toas_CW[:, 0:1])
         
         # extract sine and cosine coefficients
         a_n = jnp.imag(cw_fft[:, :self.Nsparse // 2]) * (-2 / self.Nsparse)  # (Np, Nf + 1)
         b_n = jnp.real(cw_fft[:, :self.Nsparse // 2]) * (2 / self.Nsparse)  # (Np, Nf + 1)
-        coeff = jnp.concatenate((a_n, b_n), axis=1).reshape((self.Np, 2, self.Nf + 1))\
-                                .transpose((0, 2, 1)).reshape((self.Np, self.Na + 2))
+        coeff = jnp.concatenate((a_n, b_n), axis=1).reshape((self.Np, 2, self.Nf_cw + 1))\
+                                .transpose((0, 2, 1)).reshape((self.Np, self.Na_cw + 2))
         return coeff[:, 2:]  # remove DC
     
     # simulate residuals
@@ -681,8 +785,9 @@ class PTA:
             residuals = residuals.at[:, :].add(rn_gwb_residuals)
 
         if self.model_cw:  # add continuous wave
-            a_cw_inj = self.get_CW_coefficients(self.x_inj[self.cw_psr_ndxs])
-            cw_residuals = jnp.matmul(self.Fs, a_cw_inj[..., None]).squeeze(-1)
+            # a_cw_inj = self.get_CW_coefficients(self.x_inj[self.cw_psr_ndxs])
+            # cw_residuals = jnp.matmul(self.Fs_cw, a_cw_inj[..., None]).squeeze(-1)
+            cw_residuals = self.cw_delay_toa_input(self.x_inj[self.cw_psr_ndxs], self.toas)
             residuals = residuals.at[:,:].add(cw_residuals)
 
         # fit timing model (quadratic)

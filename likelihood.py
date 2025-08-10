@@ -17,9 +17,11 @@ class Likelihood:
                  residuals,
                  Ntinvs,
                  Fs,
+                 Fs_cw,
                  Ntoas,
                  Np,
                  Na,
+                 Na_cw,
                  get_rho_diag,
                  alpha,
                  psr_dists_inj,
@@ -31,9 +33,11 @@ class Likelihood:
         self.residuals = residuals
         self.Ntinvs = Ntinvs
         self.Fs = Fs
+        self.Fs_cw = Fs_cw
         self.Ntoas = Ntoas
         self.Np = Np
         self.Na = Na
+        self.Na_cw = Na_cw
         self.get_rho_diag = jit(get_rho_diag)
         self.vectorized_get_rho_diag = jit(vmap(self.get_rho_diag))
         self.alpha = alpha
@@ -50,9 +54,18 @@ class Likelihood:
                                                                         self.residuals)])
         self.Ws = jnp.array([F.T @ Ntinv @ F for F, Ntinv in zip(self.Fs,
                                                                  self.Ntinvs)])
+        self.Vs_cw = jnp.array([F.T @ Ntinv @ res for F, Ntinv, res in zip(self.Fs_cw,
+                                                                        self.Ntinvs,
+                                                                        self.residuals)])
+        self.Ws_cw = jnp.array([F.T @ Ntinv @ F for F, Ntinv in zip(self.Fs_cw,
+                                                                 self.Ntinvs)])
+        self.Ws_tilde = jnp.array([F.T @ Ntinv @ F_cw for F, Ntinv, F_cw in zip(self.Fs,
+                                                                 self.Ntinvs, self.Fs_cw)])
 
         # likelihood vectorized over pulsars
         self.vectorized_lnlike_per_psr = jit(vmap(self.lnlike_per_psr, in_axes=(0, 0, 0, 0, 0)))
+        self.vectorized_lnlike_per_psr_cwbasis = jit(vmap(self.lnlike_per_psr_cwbasis,
+                                                          in_axes=(0, 0, 0, 0, 0, 0, 0, 0, 0)))
 
     # likelihood per pulsar
     @partial(jit, static_argnums=(0,))
@@ -64,6 +77,30 @@ class Likelihood:
     def lnlike(self, efacs, a):
         a_stacked = a.reshape((self.Np, self.Na))
         return jnp.sum(self.vectorized_lnlike_per_psr(efacs, a_stacked, self.Us, self.Vs, self.Ws))
+    
+    # likelihood per pulsar when CW uses different basis
+    @partial(jit, static_argnums=(0,))
+    def lnlike_per_psr_cwbasis(self, efac, a_rn_gwb, a_cw, U, V, W, V_cw, W_cw, W_tilde):
+        lnlike_val = U + a_rn_gwb.T @ W @ a_rn_gwb - 2 * jnp.inner(a_rn_gwb, V)
+        lnlike_val += -2. * jnp.inner(a_cw, V_cw) + 2. * a_rn_gwb.T @ W_tilde @ a_cw + a_cw.T @ W_cw @ a_cw
+        lnlike_val *= -0.5 / efac**2.
+        lnlike_val +=  -(self.Ntoas) * jnp.log(efac)
+        return lnlike_val
+    
+    # likelihood for all pulsars when CW uses different basis
+    @partial(jit, static_argnums=(0,))
+    def lnlike_cwbasis(self, efacs, a_rn_gwb, a_cw):
+        a_rn_gwb_stacked = a_rn_gwb.reshape((self.Np, self.Na))
+        a_cw_stacked = a_cw.reshape((self.Np, self.Na_cw))
+        return jnp.sum(self.vectorized_lnlike_per_psr_cwbasis(efacs,
+                                                              a_rn_gwb_stacked,
+                                                              a_cw_stacked,
+                                                              self.Us,
+                                                              self.Vs,
+                                                              self.Ws,
+                                                              self.Vs_cw,
+                                                              self.Ws_cw,
+                                                              self.Ws_tilde))
 
     # prior on Fourier coefficients
     @partial(jit, static_argnums=(0,))
@@ -194,9 +231,11 @@ def get_likelihood_obj(pta_obj):
                    pta_obj.residuals,
                    pta_obj.Ntinvs,
                    pta_obj.Fs,
+                   pta_obj.Fs_cw,
                    pta_obj.Ntoas,
                    pta_obj.Np,
                    pta_obj.Na,
+                   pta_obj.Na_cw,
                    pta_obj.get_rho_diag,
                    pta_obj.alpha,
                    pta_obj.psr_dists_inj,
