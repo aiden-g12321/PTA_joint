@@ -35,6 +35,7 @@ class PTA:
                  rn_inj=None,
                  gwb_power_law_inj=None,
                  cw_inj=None,
+                 Enterprise_bounds=False,
                  tref=1.e9,
                  seed=0):
         
@@ -51,12 +52,14 @@ class PTA:
         self.Np = Np
 
         # pulsar distance (kpc)
-        self.psr_dist_min = 0.1
-        self.psr_dist_max = 6.0
+        self.psr_dist_min_inj = 0.5
+        self.psr_dist_max_inj = 6.0
+        self.psr_dist_min = 0.01
+        self.psr_dist_max = 10.0
         self.psr_dists_inj = jr.uniform(key=self.simulation_keys[0],
                                         shape=(self.Np,),
-                                        minval=self.psr_dist_min,
-                                        maxval=self.psr_dist_max)
+                                        minval=self.psr_dist_min_inj,
+                                        maxval=self.psr_dist_max_inj)
 
         # set pulsar distance uncertainty to fixed value
         self.psr_dists_stdev = jnp.array([0.2] * Np)
@@ -185,7 +188,7 @@ class PTA:
             self.rn_mins = jnp.array([self.rn_log_amp_min, self.rn_gamma_min] * self.Np)
             self.rn_maxs = jnp.array([self.rn_log_amp_max, self.rn_gamma_max] * self.Np)
             # intrinsic pulsar red noise parameter bounds for injection
-            self.rn_log_amp_min_inj = -16.0
+            self.rn_log_amp_min_inj = -18.0
             self.rn_log_amp_max_inj = -14.0
             self.rn_gamma_min_inj = 2.
             self.rn_gamma_max_inj = 7.
@@ -236,7 +239,7 @@ class PTA:
                 # injected GWB parameters
                 self.gwb_power_law_inj = gwb_power_law_inj
                 if self.gwb_power_law_inj is None:
-                    self.gwb_power_law_inj = jnp.array([-14., 13. / 3.])
+                    self.gwb_power_law_inj = jnp.array([-14.2, 13. / 3.])
                 
                 # GWB injection defined below in Fourier coefficient section
                 # self.gwb_inj = jnp.log10(self.get_rho_diag(self.gwb_power_law_inj)[::2])
@@ -353,14 +356,19 @@ class PTA:
         # model continuous wave        
         self.model_cw = model_cw
         if self.model_cw:
-
             # continuous wave parameter bounds
-            self.cw_mins = jnp.array([7., -9., -1., -jnp.pi / 2., -1., -1., 0., -jnp.pi / 2.])
-            self.cw_maxs = jnp.array([9.5, -8., 1., jnp.pi / 2., 2., 1., 2. * jnp.pi, jnp.pi / 2.])
+            self.Enterprise_bounds = Enterprise_bounds
+            if self.Enterprise_bounds:
+                self.cw_mins = jnp.array([6., -9., -1., 0, -2., -1., 0., 0.])
+                self.cw_maxs = jnp.array([10., -7., 1., jnp.pi, 4., 1., 2. * jnp.pi, 2. * jnp.pi])
+                self.psr_phase_maxs = jnp.ones(self.Np) * jnp.pi
+            else:
+                self.cw_mins = jnp.array([7., -9., -1., -jnp.pi / 2., -1., -1., 0., -jnp.pi / 2.])
+                self.cw_maxs = jnp.array([9.5, -8., 1., jnp.pi / 2., 2., 1., 2. * jnp.pi, jnp.pi / 2.])
+                self.psr_phase_maxs = jnp.ones(self.Np) * 2. * jnp.pi
             self.psr_dist_mins = jnp.ones(self.Np) * self.psr_dist_min
             self.psr_dist_maxs = jnp.ones(self.Np) * self.psr_dist_max
             self.psr_phase_mins = jnp.zeros(self.Np)
-            self.psr_phase_maxs = jnp.ones(self.Np) * 2. * jnp.pi
             self.cw_psr_mins = jnp.concatenate((self.cw_mins, self.psr_phase_mins, self.psr_dist_mins))
             self.cw_psr_maxs = jnp.concatenate((self.cw_maxs, self.psr_phase_maxs, self.psr_dist_maxs))
 
@@ -413,13 +421,7 @@ class PTA:
             self.Tspan_ext_yr = self.Tspan_yr + 2. * self.window_ext_yr
             self.Tspan_ext = self.Tspan_ext_yr * c.year_sec
 
-            # sparse times used for FFT in CW model
-            # self.sparse_toas_CW = jnp.array([jnp.linspace(self.toas[idx][0], self.toas[idx][-1],
-            #                                               self.Na + 2, endpoint=False)
-            #                             for idx in range(self.Np)])  # (Np, N_sparse)
-            # self.Nsparse = self.sparse_toas_CW.shape[1]
-            # self.freqs_forFFT = jnp.array([jnp.fft.fftfreq(self.Nsparse, self.Tspan / self.Nsparse)
-            #                                for _ in range(self.Np)])
+            # sparse TOAs for CW FFT
             self.sparse_toas_CW = jnp.array([jnp.linspace(self.toas[idx][0] - self.window_ext,
                                                           self.toas[idx][-1] + self.window_ext,
                                                           self.Na_cw + 2, endpoint=False)

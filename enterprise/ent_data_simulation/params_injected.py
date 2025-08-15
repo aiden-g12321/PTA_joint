@@ -5,11 +5,11 @@ import numpy as np
 
 
 # number of pulsars
-num_psrs = 10
+num_psrs = 5
 
 
 # number of Fourier modes to model
-num_modes = 5
+num_modes = 100
 num_coeff = 2 * num_modes
 
 
@@ -29,7 +29,7 @@ GWB_hypers_inj = np.array([GWB_logamp_inj, GWB_gamma_inj])
 
 
 # intrinsic pulsar red noise
-rn_model = True
+rn_model = False
 RN_seed = 334
 RN_logamps_inj = np.array([-13.2, -13.3, -13.1, -13.2, -13.1, -13.6, -13.5, -13.6, -13.8, -14.1,
                             -12.5, -13.3, -13.1, -13.2, -14.1, -12.5, -13.2, -13.1, -13.8, -14.1])[:num_psrs]
@@ -42,14 +42,14 @@ RN_hypers_inj = np.array(RN_hypers_inj)
 
 
 # CW parameter attributes
-cw_model = False
+cw_model = True
 gwtheta_inj = np.pi / 2
 gwphi_inj = 3 * np.pi / 2.
-mc_inj = 10.**8.6
+mc_inj = 10.**9.0
 dist_inj = 0.8
 fgw_inj = 4.e-9
-phase0_inj = 0.
-psi_inj = 0.
+phase0_inj = np.pi
+psi_inj = np.pi / 2.
 inc_inj = np.pi / 2.
 log10_dist_inj = np.log10(dist_inj)
 cosinc_inj = np.cos(inc_inj)

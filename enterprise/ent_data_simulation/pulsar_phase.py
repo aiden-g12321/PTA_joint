@@ -1,6 +1,5 @@
 import numpy as np
 import scipy.constants as sc
-from params_injected import num_psrs
 
 
 # constants
@@ -25,7 +24,8 @@ def get_psr_phase(cw_params, psr_position, psr_dist):
     pphase = (1 + 256/5 * (10**log10_mc*SOLAR2S)**(5/3) * (np.pi * 10**log10_fgw)**(8/3)
             * psr_dist*KPC2S*(1-cosMu)) ** (5/8) - 1
     pphase /= 32 * (10**log10_mc*SOLAR2S)**(5/3) * (np.pi * 10**log10_fgw)**(5/3)
-    psr_phase = -pphase%(2*np.pi)
+    # psr_phase = -pphase%(2*np.pi)
+    psr_phase = -pphase%(1*np.pi)
 
     return psr_phase
 
