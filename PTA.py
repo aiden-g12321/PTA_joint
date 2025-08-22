@@ -191,7 +191,7 @@ class PTA:
             self.rn_log_amp_min_inj = -18.0
             self.rn_log_amp_max_inj = -14.0
             self.rn_gamma_min_inj = 2.
-            self.rn_gamma_max_inj = 7.
+            self.rn_gamma_max_inj = 5.
             self.rn_mins_inj = jnp.array([self.rn_log_amp_min_inj, self.rn_gamma_min_inj] * self.Np)
             self.rn_maxs_inj = jnp.array([self.rn_log_amp_max_inj, self.rn_gamma_max_inj] * self.Np)
 
@@ -224,6 +224,8 @@ class PTA:
 
             # injected power law parameters
             self.gwb_power_law_inj = gwb_power_law_inj
+            if self.gwb_power_law_inj is None:
+                self.gwb_power_law_inj = jnp.array([-14., 13. / 3.])
 
             # free spectral or power law hyper-model
             self.gwb_free_spectral = gwb_free_spectral
@@ -235,11 +237,6 @@ class PTA:
                 self.gwb_log_rho_max = -8.
                 self.gwb_mins = jnp.array([self.gwb_log_rho_min] * self.Nf)
                 self.gwb_maxs = jnp.array([self.gwb_log_rho_max] * self.Nf)
-
-                # injected GWB parameters
-                self.gwb_power_law_inj = gwb_power_law_inj
-                if self.gwb_power_law_inj is None:
-                    self.gwb_power_law_inj = jnp.array([-14.2, 13. / 3.])
                 
                 # GWB injection defined below in Fourier coefficient section
                 # self.gwb_inj = jnp.log10(self.get_rho_diag(self.gwb_power_law_inj)[::2])
@@ -263,9 +260,6 @@ class PTA:
 
                 # injected GWB parameters
                 self.gwb_inj = self.gwb_power_law_inj
-                if self.gwb_inj is None:
-                    self.gwb_inj = jnp.array([-14., 13. / 3.])
-                    self.gwb_power_law_inj = self.gwb_inj
 
                 # intrinsic pulsar red noise parameter labels
                 self.gwb_labels = np.array([r'$\log_{{{10}}}\,A_B$', r'$\gamma_B$'])
