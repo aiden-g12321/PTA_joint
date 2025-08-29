@@ -8,3 +8,4 @@ enterprise/enterprise_chains/
 *.gz
 
 enterprise/ent_df.pkl.gz
+enterprise/ent_df.pkl.gz
