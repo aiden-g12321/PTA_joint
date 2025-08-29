@@ -41,6 +41,7 @@ def create_gw_antenna_pattern(pos, gwtheta, gwphi):
     return fplus, fcross, cosMu
 
 
+
 def add_cgw(psr, CW_params, psr_params, toas_input, pos):
     
     """
@@ -106,44 +107,71 @@ def add_cgw(psr, CW_params, psr_params, toas_input, pos):
     w0 = np.pi * fgw
     phase0 = phase0 / 2.0  # convert GW to orbital phase
 
+    # monochromatic
+    omega = w0
+    omega_p = w0 * (1 + 256/5
+                    * mc**(5/3) * w0**(8/3) * pdist*(1-cosMu))**(-3/8)
 
-    # calculate time dependent frequency at earth and pulsar
-    mc53 = mc**(5./3.)
-    w083 = w0**(8./3.)
-    fac1 = 256./5. * mc53 * w083
-    omega = w0 * (1. - fac1 * toas_copy)**(-3./8.)
-    omega_p = w0 * (1. - fac1 * tp)**(-3./8.)
-    omega_p0 = w0 * (1. + fac1 * p_dist*(1-cosMu))**(-3./8.)
+    # phases
+    phase = phase0 + omega * toas_copy
+    phase_p = phase0 + p_phase + omega_p * toas_copy
 
-    # calculate time dependent phase
-    phase = phase0 + 1./32./mc53 * (w0**(-5./3.) - omega**(-5./3.))
-
-    phase_p = (phase0 + p_phase
-                + 1./32./mc53 * (omega_p0**(-5./3.) - omega_p**(-5./3.)))
 
     # define time dependent coefficients
-    inc_factor = -0.5 * (3. + np.cos(2. * inc))
-    # At = -0.5*np.sin(2*phase)*(3+np.cos(2*inc))
-    At = np.sin(2. * phase) * inc_factor
-    Bt = 2. * np.cos(2. * phase) * cos_inc
-    # At_p = -0.5*np.sin(2*phase_p)*(3+np.cos(2*inc))
-    At_p = np.sin(2. * phase_p) * inc_factor
-    Bt_p = 2. * np.cos(2. * phase_p) * cos_inc
+    At = -0.5*np.sin(2*phase)*(3+np.cos(2*inc))
+    Bt = 2*np.cos(2*phase)*np.cos(inc)
+    At_p = -0.5*np.sin(2*phase_p)*(3+np.cos(2*inc))
+    Bt_p = 2*np.cos(2*phase_p)*np.cos(inc)
 
     # now define time dependent amplitudes
     alpha = mc**(5./3.)/(dist*omega**(1./3.))
     alpha_p = mc**(5./3.)/(dist*omega_p**(1./3.))
 
     # define rplus and rcross
-    c2psi = np.cos(2. * psi)
-    s2psi = np.sin(2. * psi)
-    rplus = alpha*(-At*c2psi+Bt*s2psi)
-    rcross = alpha*(At*s2psi+Bt*c2psi)
-    rplus_p = alpha_p*(-At_p*c2psi+Bt_p*s2psi)
-    rcross_p = alpha_p*(At_p*s2psi+Bt_p*c2psi)
+    rplus = alpha*(-At*np.cos(2*psi)+Bt*np.sin(2*psi))
+    rcross = alpha*(At*np.sin(2*psi)+Bt*np.cos(2*psi))
+    rplus_p = alpha_p*(-At_p*np.cos(2*psi)+Bt_p*np.sin(2*psi))
+    rcross_p = alpha_p*(At_p*np.sin(2*psi)+Bt_p*np.cos(2*psi))
 
     # residuals
     res = fplus*(rplus_p-rplus)+fcross*(rcross_p-rcross)
+    # # calculate time dependent frequency at earth and pulsar
+    # mc53 = mc**(5./3.)
+    # w083 = w0**(8./3.)
+    # fac1 = 256./5. * mc53 * w083
+    # omega = w0 * (1. - fac1 * toas_copy)**(-3./8.)
+    # omega_p = w0 * (1. - fac1 * tp)**(-3./8.)
+    # omega_p0 = w0 * (1. + fac1 * p_dist*(1-cosMu))**(-3./8.)
+
+    # # calculate time dependent phase
+    # phase = phase0 + 1./32./mc53 * (w0**(-5./3.) - omega**(-5./3.))
+
+    # phase_p = (phase0 + p_phase
+    #             + 1./32./mc53 * (omega_p0**(-5./3.) - omega_p**(-5./3.)))
+
+    # # define time dependent coefficients
+    # inc_factor = -0.5 * (3. + np.cos(2. * inc))
+    # # At = -0.5*np.sin(2*phase)*(3+np.cos(2*inc))
+    # At = np.sin(2. * phase) * inc_factor
+    # Bt = 2. * np.cos(2. * phase) * cos_inc
+    # # At_p = -0.5*np.sin(2*phase_p)*(3+np.cos(2*inc))
+    # At_p = np.sin(2. * phase_p) * inc_factor
+    # Bt_p = 2. * np.cos(2. * phase_p) * cos_inc
+
+    # # now define time dependent amplitudes
+    # alpha = mc**(5./3.)/(dist*omega**(1./3.))
+    # alpha_p = mc**(5./3.)/(dist*omega_p**(1./3.))
+
+    # # define rplus and rcross
+    # c2psi = np.cos(2. * psi)
+    # s2psi = np.sin(2. * psi)
+    # rplus = alpha*(-At*c2psi+Bt*s2psi)
+    # rcross = alpha*(At*s2psi+Bt*c2psi)
+    # rplus_p = alpha_p*(-At_p*c2psi+Bt_p*s2psi)
+    # rcross_p = alpha_p*(At_p*s2psi+Bt_p*c2psi)
+
+    # # residuals
+    # res = fplus*(rplus_p-rplus)+fcross*(rcross_p-rcross)
 
 
     # # convert units

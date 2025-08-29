@@ -3,3 +3,7 @@ runs/
 
 .DS_Store
 
+enterprise/enterprise_chains/
+
+*.gz
+

@@ -181,10 +181,10 @@ class PTA:
         if self.model_rn:
 
             # intrinsic pulsar red noise parameter bounds for sampling
-            self.rn_log_amp_min = -20.0
+            self.rn_log_amp_min = -30.0
             self.rn_log_amp_max = -10.0
             self.rn_gamma_min = 0.1
-            self.rn_gamma_max = 10.
+            self.rn_gamma_max = 20.
             self.rn_mins = jnp.array([self.rn_log_amp_min, self.rn_gamma_min] * self.Np)
             self.rn_maxs = jnp.array([self.rn_log_amp_max, self.rn_gamma_max] * self.Np)
             # intrinsic pulsar red noise parameter bounds for injection

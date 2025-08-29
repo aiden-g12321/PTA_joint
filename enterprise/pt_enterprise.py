@@ -67,16 +67,14 @@ sampler = ptmcmc(ndim=ndim,
                  resume=False)
 
 # do MCMC
-num_samples = int(2e6)
+num_samples = int(1e7)
 sampler.sample(p0=x_inj,
                Niter=num_samples,
-               ladder=np.round(1.25**np.arange(5), 2),
+               ladder=np.round(1.3**np.arange(4), 2),
                writeHotChains=True,
                DEweight=20,
                SCAMweight=20,
                AMweight=5,
-               NUTSweight=5,
-               MALAweight=5,
                # Tskip=300
                )
 
