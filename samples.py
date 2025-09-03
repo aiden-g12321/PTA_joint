@@ -51,8 +51,10 @@ class Samples:
         plt.show()
 
     # trace plot
-    def trace_plt(self, burnin=0, plt_inj=True, legend=False):
-        for i in range(self.ndim):
+    def trace_plt(self, burnin=0, plt_inj=True, legend=False, param_ndxs=None):
+        if param_ndxs is None:
+            param_ndxs = np.arange(self.ndim)
+        for i in param_ndxs:
             plt.plot(self.samples[burnin:, i], color=f'C{i}', alpha=0.5)
             if self.x_inj is not None and plt_inj:
                 plt.axhline(self.x_inj[i], color=f'C{i}', alpha=0.8, label=self.labels[i])

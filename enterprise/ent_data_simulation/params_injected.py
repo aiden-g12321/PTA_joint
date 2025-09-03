@@ -5,11 +5,11 @@ import numpy as np
 
 
 # number of pulsars
-num_psrs = 5
+num_psrs = 20
 
 
 # number of Fourier modes to model
-num_modes = 5
+num_modes = 10
 num_coeff = 2 * num_modes
 
 
@@ -20,23 +20,23 @@ efac_inj = 1.0
 
 
 # GWB
-gwb_model = False
+gwb_model = True
 free_spectral = False
-GWB_seed = 333
-GWB_logamp_inj = -13.6
+GWB_seed = 114
+GWB_logamp_inj = -14.5
 GWB_gamma_inj = 13. / 3.
 GWB_hypers_inj = np.array([GWB_logamp_inj, GWB_gamma_inj])
 
 
 # intrinsic pulsar red noise
-rn_model = True
+rn_model = False
 RN_seed = 2266
-# RN_logamps_inj = np.array([-13.2, -13.3, -13.1, -13.2, -13.1, -13.6, -13.5, -13.6, -13.8, -14.1,
-#                             -12.5, -13.3, -13.1, -13.2, -14.1, -12.5, -13.2, -13.1, -13.8, -14.1])[:num_psrs]
-RN_logamps_inj = np.array([-13.5, -13.7, -14.1, -13.8, -14., -13.6, -13.5, -13.6, -13.8, -14.1,
-                            -12.5, -13.6, -13.1, -13.2, -14.1, -12.5, -13.2, -13.1, -13.8, -14.1])[:num_psrs]
-RN_gammas_inj = np.array([4.6, 3.6, 4.5, 4.2, 4.0, 4.1, 3.8, 1.5, 5.6, 3.5,
-                          2.1, 4.8, 1.5, 2.6, 2.5, 3.1, 3.8, 1.5, 5.6, 3.5])[:num_psrs]
+RN_logamps_inj = np.random.uniform(-16., -14., num_psrs)
+RN_gammas_inj = np.random.uniform(2., 7., num_psrs)
+# RN_logamps_inj = np.array([-13.5, -13.7, -14.1, -13.8, -14., -13.6, -13.5, -13.6, -13.8, -14.1,
+#                             -12.5, -13.6, -13.1, -13.2, -14.1, -12.5, -13.2, -13.1, -13.8, -14.1])[:num_psrs]
+# RN_gammas_inj = np.array([4.6, 3.6, 4.5, 4.2, 4.0, 4.1, 3.8, 1.5, 5.6, 3.5,
+#                           2.1, 4.8, 1.5, 2.6, 2.5, 3.1, 3.8, 1.5, 5.6, 3.5])[:num_psrs]
 RN_hypers_inj = np.zeros(2 * num_psrs)
 RN_hypers_inj[::2] = RN_logamps_inj
 RN_hypers_inj[1::2] = RN_gammas_inj
@@ -44,10 +44,10 @@ RN_hypers_inj = np.array(RN_hypers_inj)
 
 
 # CW parameter attributes
-cw_model = True
+cw_model = False
 gwtheta_inj = np.pi / 2
 gwphi_inj = 2.8 * np.pi / 2.
-mc_inj = 10.**8.9
+mc_inj = 10.**8.4
 dist_inj = 1.0
 fgw_inj = 4.e-9
 phase0_inj = np.pi / 4.

@@ -55,8 +55,8 @@ x_inj = np.array(x_inj)
 
 # set up the sampler:
 ndim = len(x_inj)
-cov = np.eye(ndim) * 10.0
-cov[-4] = 0.0001
+cov = np.eye(ndim) * 5.0
+# cov[-4] = 0.0001
 outDir = 'enterprise_chains'
 
 sampler = ptmcmc(ndim=ndim,
@@ -67,11 +67,11 @@ sampler = ptmcmc(ndim=ndim,
                  resume=False)
 
 # do MCMC
-num_samples = int(1e7)
+num_samples = int(1e6)
 sampler.sample(p0=x_inj,
                Niter=num_samples,
-               ladder=np.round(1.3**np.arange(4), 2),
-               writeHotChains=True,
+               # ladder=np.round(1.3**np.arange(4), 2),
+               # writeHotChains=True,
                DEweight=20,
                SCAMweight=20,
                AMweight=5,

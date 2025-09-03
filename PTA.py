@@ -10,9 +10,9 @@ import jax.random as jr
 
 from scipy.signal.windows import tukey
 
-# use double precision
-from jax import config
-config.update('jax_enable_x64', True)
+# # use double precision
+# from jax import config
+# config.update('jax_enable_x64', True)
 
 import constants as c
 
