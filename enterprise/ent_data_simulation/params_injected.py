@@ -5,11 +5,11 @@ import numpy as np
 
 
 # number of pulsars
-num_psrs = 20
+num_psrs = 5
 
 
 # number of Fourier modes to model
-num_modes = 10
+num_modes = 5
 num_coeff = 2 * num_modes
 
 
@@ -44,7 +44,7 @@ RN_hypers_inj = np.array(RN_hypers_inj)
 
 
 # CW parameter attributes
-cw_model = False
+cw_model = True
 gwtheta_inj = np.pi / 2
 gwphi_inj = 2.8 * np.pi / 2.
 mc_inj = 10.**8.4
