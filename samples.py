@@ -5,7 +5,7 @@ import numpy as np
 from jax import jit, vmap
 import matplotlib.pyplot as plt
 import pandas as pd
-from chainconsumer import ChainConsumer, Chain, Truth
+from chainconsumer import ChainConsumer, Chain, Truth, PlotConfig
 from emcee.autocorr import integrated_time
 
 
@@ -79,10 +79,10 @@ class Samples:
 
     # corner plot
     def corner_plt(self, param_ndxs, burnin=0, thin=1, other_samples=None,
-                   name1='samples', name2='samples2', **kwargs):
+                   name1='samples', name2='samples2', **chain_kwargs):
         c = ChainConsumer()
         c.add_chain(Chain(samples=self.samples_df.iloc[burnin::thin, param_ndxs],
-                          name=name1, **kwargs))
+                          name=name1, **chain_kwargs))
         if self.x_inj is not None:
             c.add_truth(Truth(location={name: val for name, val in zip(self.labels, self.x_inj)}))
         if other_samples is not None:
